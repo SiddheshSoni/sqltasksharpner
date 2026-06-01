@@ -1,76 +1,90 @@
-const db = require('../utils/db-connection');
-const template = require('../utils/err-res');
+const Student = require('../models/students');
 
-const addStudent = (req, res)=>{
-    const {name, email, age} = req.body;
-
-    const addStudentQuery = `INSERT INTO Students (name, email, age) VALUES (?, ?, ?)`;
-
-    db.execute(addStudentQuery, [name, email, age], (err, result)=>{
-        const {status, message} = template(err, result);
-        if(status !== 200){
-            res.status(status);
-            res.send("Failed sending data!");
-        }
-        res.status(status).send("Succesfully added student");
-    })
+const addStudent = async (req, res)=>{
+    try{
+        const {name, email, age} = req.body;
+        const student = await Student.create({
+            email:email,
+            name: name,
+            age:age
+        });
+        
+        res.status(201).send("User has been created!");
+    }catch(err){
+        res.status(500).send("Unable to add user! error:"+ err);
+    }    
 };
 
-const getAllStudents = (req, res) =>{
-    
-    const getStudentsQuery = `SELECT * FROM Students`;
-    db.execute(getStudentsQuery, (err, result)=>{
-      const {status, message} = template(err, result);
-        if(status !== 200){
-            res.status(status);
-            res.send("Failed getting data!");
+const getAllStudents = async (req, res) => {
+    try {
+        const students = await Student.findAll();
+
+        if (!students || students.length === 0) {
+            return res.status(404).send('No Student Record Found!');
         }
-        res.status(status).send("Succesfully fetched students table");  
-    })
+
+        res.status(200).json(students);
+    } catch (err) {
+        res.status(500).send('Failed getting data err: ' + err);
+    }
 };
 
-const getStudentById =(req, res)=>{
-    const { id } = req.params;
+const getStudentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const student = await Student.findByPk(id);
 
-    const getStudentByIdQuery = `SELECT * FROM Students WHERE id = ?`;
-    db.execute(getStudentByIdQuery, [id], (err, result)=>{
-        const {status, message} = template(err, result);
-        if(status !== 200){
-            res.status(status);
-            res.send("Failed getting student data!");
+        if (!student) {
+            return res.status(404).send('No Student Record Found with id: ' + id);
         }
-        res.status(status).send("Succesfully fetched student with id:" + id);
-    }) 
+
+        res.status(200).json(student);
+    } catch (err) {
+        res.status(500).send('Failed getting data err: ' + err);
+    }
 };
 
-const updateStudentById = (req, res)=>{
-    const { id } = req.params;
-    const {name, email, age} = req.body;
+const updateStudentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, email, age } = req.body;
 
-    const updateStudentByIdQuery = `UPDATE Students SET name = ?, email = ?, age = ? WHERE id = ?`;
-    db.execute(updateStudentByIdQuery, [name, email, age, id], (err, result)=>{
-        const {status, message} = template(err, result);
-        if(status !== 200){
-            res.status(status);
-            res.send("Failed updating student data!");
+        const student = await Student.findByPk(id);
+        if (!student) {
+            return res.status(404).send('No user found with id: ' + id);
         }
-        res.status(status).send("Succesfully updated student with id:" + id);
-    }) 
+
+        if (name) student.name = name;
+        if (email) student.email = email;
+        if (age) student.age = age;
+
+        await student.save();
+        res.status(200).json({
+            message: 'Successfully updated student with id: ' + id,
+            student
+        });
+    } catch (err) {
+        res.status(500).send('Failed updating user! error: ' + err);
+    }
 };
 
-const deleteStudentById = (req, res)=>{
-    const { id } = req.params;
+const deleteStudentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const destroyed = await Student.destroy({
+            where: {
+                id
+            }
+        });
 
-    const deleteStudentByIdQuery = `DELETE FROM Students WHERE id = ?`
-
-    db.execute(deleteStudentByIdQuery, [id], (err, result)=>{
-        const {status, message} = template(err, result);
-        if(status !== 200){
-            res.status(status);
-            res.send("Failed deleting student data!");
+        if (!destroyed) {
+            return res.status(404).send('No user found with id: ' + id);
         }
-        res.status(status).send("Succesfully deleted student with id:" + id);
-    })
+
+        res.status(200).send('Successfully deleted student with id: ' + id);
+    } catch (err) {
+        res.status(500).send('Failed to delete student! error: ' + err);
+    }
 };
 
 module.exports = {
